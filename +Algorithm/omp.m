@@ -4,6 +4,7 @@ function s = omp(g, Phi, K)
     g = g(:);
 
     % 初始化
+    g_norm = norm(g);
     residual = g;
     coef = zeros(K, 1);
     support = zeros(K, 1);
@@ -20,7 +21,7 @@ function s = omp(g, Phi, K)
         % coef = selected_atoms(:, 1:iter) \ g; % 最小二乘求解系数
         coef = pinv(selected_atoms(:, 1:iter)) * g; % 最小二乘求解系数，使用广义逆避免奇异
         residual = g - selected_atoms(:, 1:iter) * coef; % 更新
-        if norm(residual) < 1e-10
+        if norm(residual) < 1e-2 * g_norm
             break;
         end
     end
