@@ -1,33 +1,28 @@
-function [s, info] = ist(g, Phi, lambda, max_iter)
+function [s_est, info] = iht(g, Phi, max_iter, K)
     [~, N] = size(Phi);
-    s = zeros(N, 1);
+    s_est = zeros(N, 1);
     g = g(:);
 
     g_norm = norm(g);
     L = compute_lipschitz_constant(Phi);
     t = 1 / L;  % 计算步长
-
-    % 停止参数：
-    % 1) residual_tol: 达到目标残差比例直接停止
-    % 2) plateau_tol + plateau_patience: 连续多次改进极小，判定进入地板
+    
     residual_tol = 1e-2;
     plateau_tol = 1e-6;
     plateau_patience = 20;
     plateau_count = 0;
 
-    % 迭代更新
-    residual = Phi * s - g;  % 初始残差
+    residual = Phi * s_est - g;  % 初始残差
     residual_norm = norm(residual);
     stop_reason = "max_iter";
     iter_done = 0;
 
     for iter = 1:max_iter
-        grad = Phi' * residual;    % 计算梯度
-        z = s - t * grad;
-        s = l1_proximal_operator(z, lambda * t); % 应用L1范数的近端算子
+        z = s_est - Phi' * residual * t;    % 计算梯度步长更新
+        s_est = hard_thresholding(z, K); % 应用硬阈值处理
 
         prev_residual_norm = residual_norm;
-        residual = Phi * s - g;  % 更新残差
+        residual = Phi * s_est - g;  % 更新残差
         residual_norm = norm(residual);
         iter_done = iter;
 
@@ -61,8 +56,11 @@ function [s, info] = ist(g, Phi, lambda, max_iter)
     end
 end
 
-function r = l1_proximal_operator(x, param)
-    r = sign(x) .* max(abs(x) - param, 0);
+function r = hard_thresholding(x, K)
+    % 对向量x进行硬阈值处理，保留最大的K个元素
+    r = zeros(size(x));
+    [~, idx] = sort(abs(x), 'descend');
+    r(idx(1:K)) = x(idx(1:K));
 end
 
 function L = compute_lipschitz_constant(Phi)

@@ -1,4 +1,4 @@
-function [s, info] = ist(g, Phi, lambda, max_iter)
+function [s, info] = pgd_1f2(g, Phi, lambda, max_iter)
     [~, N] = size(Phi);
     s = zeros(N, 1);
     g = g(:);
@@ -24,7 +24,7 @@ function [s, info] = ist(g, Phi, lambda, max_iter)
     for iter = 1:max_iter
         grad = Phi' * residual;    % 计算梯度
         z = s - t * grad;
-        s = l1_proximal_operator(z, lambda * t); % 应用L1范数的近端算子
+        s = proximal_operator(z, lambda * t); % 应用$L_\frac12$范数的近端算子
 
         prev_residual_norm = residual_norm;
         residual = Phi * s - g;  % 更新残差
@@ -61,8 +61,16 @@ function [s, info] = ist(g, Phi, lambda, max_iter)
     end
 end
 
-function r = l1_proximal_operator(x, param)
-    r = sign(x) .* max(abs(x) - param, 0);
+% $L_\frac12$ 范数的近端算子
+function r = proximal_operator(x, lambda)
+    r = zeros(size(x));
+    for i = 1:length(x)
+        if abs(x(i)) > (3/2) * lambda^(2/3)
+            r(i) = x(i) - (lambda * sign(x(i))) / (abs(x(i))^(1/3));
+        else
+            r(i) = 0;
+        end
+    end
 end
 
 function L = compute_lipschitz_constant(Phi)
