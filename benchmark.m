@@ -1,14 +1,16 @@
 % 生成稀疏信号
-K = 2;
+K_MAX = 3;
 N = 200;
 M = 15;
 SNR = 10;
-EPOCH = 1e5;
+EPOCH = 1e4;
 VIEWS = 10;
 MAX_ITER = 1e4;
 LAMBDA = 1;
+LAMBDA_L12_IST = 5;
+LAMBDA_L12_PGD = 0.5;
 
-ALGORITHMS = {'IST', 'OMP', 'IHT', 'PGD L_{1/2}'};
+ALGORITHMS = {'IST', 'PGD L_{1/2}', 'PGD L_{1/2} after IST'};
 SNR_Matrix = zeros(EPOCH, length(ALGORITHMS));
 TOTAL = EPOCH * length(ALGORITHMS);
 elapsed_time = zeros(length(ALGORITHMS), 1);
@@ -19,12 +21,20 @@ for alg_idx = 1:length(ALGORITHMS)
     tich = tic;
     for epoch = 1:EPOCH
         s_true = complex(zeros(N, 1));
+        K = randi([1, K_MAX]);
         non_zero_indices = randperm(N, K);
         s_true(non_zero_indices) = 1 * exp(1j * 2 * pi * rand(K, 1)) + 0.1 * (randn(K, 1) + 1j * randn(K, 1));
         Phi = (randn(M, N) + 1j * randn(M, N)) / sqrt(2);
         g_raw = Phi * s_true;
         g = awgn(g_raw, SNR, 'measured');
-        params = struct('K', K, 'lambda', LAMBDA, 'max_iter', MAX_ITER, 'Phi', Phi, 'g', g);
+        params = struct();
+        params.K = K;
+        params.lambda = LAMBDA;
+        params.max_iter = MAX_ITER;
+        params.Phi = Phi;
+        params.g = g;
+        params.lambda_ist = LAMBDA_L12_IST;
+        params.lambda_pgd = LAMBDA_L12_PGD;
         [s_est, ~] = Algorithm.run_algorithm(alg_name, params);
         SNR_Matrix(epoch, alg_idx) = Shared.compute_SNR(s_true, s_est);
     end
@@ -66,6 +76,7 @@ fclose(fid);
 disp('Generating recovery examples...');
 for v = 1:VIEWS
     s_true = complex(zeros(N, 1));
+    K = randi([1, K_MAX]);
     non_zero_indices = randperm(N, K);
     s_true(non_zero_indices) = 1 * exp(1j * 2 * pi * rand(K, 1)) + 0.1 * (randn(K, 1) + 1j * randn(K, 1));
     Phi = (randn(M, N) + 1j * randn(M, N)) / sqrt(2);
@@ -75,7 +86,14 @@ for v = 1:VIEWS
     info = cell(1, length(ALGORITHMS));
     for alg_idx = 1:length(ALGORITHMS)
         alg_name = ALGORITHMS{alg_idx};
-        params = struct('K', K, 'lambda', LAMBDA, 'max_iter', MAX_ITER, 'Phi', Phi, 'g', g);
+        params = struct();
+        params.K = K;
+        params.lambda = LAMBDA;
+        params.max_iter = MAX_ITER;
+        params.Phi = Phi;
+        params.g = g;
+        params.lambda_ist = LAMBDA_L12_IST;
+        params.lambda_pgd = LAMBDA_L12_PGD;
         [s_est(:, alg_idx), info{alg_idx}] = Algorithm.run_algorithm(alg_name, params);
     end
     % 绘制恢复结果
@@ -110,7 +128,7 @@ for v = 1:VIEWS
 end
 
 % 绘制误差率分布图
-NUM_BAR = 200;
+NUM_BAR = 50;
 figure;
 hold on;
 edges = linspace(min(SNR_Matrix(:)), max(SNR_Matrix(:)), NUM_BAR+1);

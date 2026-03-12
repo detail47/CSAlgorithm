@@ -1,6 +1,10 @@
-function [s, info] = pgd_1f2(g, Phi, lambda, max_iter)
+function [s, info] = pgd_L1_2(g, Phi, lambda, max_iter, s0)
     [~, N] = size(Phi);
-    s = zeros(N, 1);
+    if exist('s0', 'var') && ~isempty(s0)
+        s = s0;
+    else
+        s = zeros(N, 1);
+    end
     g = g(:);
 
     g_norm = norm(g);
